@@ -19,7 +19,7 @@ const CAREER_PATHS: Job[] = [
   {
     key: "vercel",
     path: "https://vercel.com/careers",
-    domain: "https://vercel.com/",
+    domain: "https://vercel.com",
   },
 ]
 
@@ -48,7 +48,10 @@ export async function getJobs() {
 
       jobs.each(function (this: cheerio.Cheerio) {
         const jobNode = $(this)
-        const href = careerPath.domain + jobNode.attr("href")
+        let href = jobNode.attr("href")
+
+        if (!href?.startsWith("https")) href = careerPath.domain + href
+
         const text = jobNode.text()
 
         if (href) jobsObj[key].push({ href, text })
@@ -64,29 +67,36 @@ export async function getJobs() {
 
 async function getMicrosoftJobs() {
   let jobs: JobObj[] = []
+  const jobsPage = "https://jobs.careers.microsoft.com/global/en/search"
+  const jobPathPrefix = "https://jobs.careers.microsoft.com/global/en/job/"
 
-  await launchBrowser(
-    "https://jobs.careers.microsoft.com/global/en/search?l=en_us&pg=1&pgSz=20&o=Relevance&flt=true&ref=cms",
-    async page => {
-      const inputSelector =
-        '[aria-label="Search by job title, ID, or keyword"]'
-      await page.waitForSelector(inputSelector)
-      await page.type(inputSelector, "Software Engineer")
+  await launchBrowser(jobsPage, async page => {
+    const inputSelector =
+      '[aria-label="Search by job title, ID, or keyword"]'
+    await page.waitForSelector(inputSelector)
+    await page.type(inputSelector, "Software Engineer")
 
-      await page.click('[aria-label="Find jobs"]')
+    await page.click('[aria-label="Find jobs"]')
 
-      const jobsSelector = "[aria-label^='Job item'] h2"
+    const jobsSelector = "[aria-label^='Job item']"
 
-      await page.waitForSelector(jobsSelector)
+    await page.waitForSelector(jobsSelector)
 
-      jobs = await page.evaluate(() =>
-        Array.from(
-          document.querySelectorAll("[aria-label^='Job item'] h2"),
-          element => ({ text: element.textContent ?? "", href: "#" })
-        )
-      )
-    }
-  )
+    jobs = await page.evaluate(
+      (jobsSelector, jobPathPrefix) =>
+        Array.from(document.querySelectorAll(jobsSelector), element => {
+          const jobId = element.ariaLabel?.replace("Job item ", "")
+          const jobTitle = element.querySelector("h2")
+
+          return {
+            text: jobTitle?.textContent ?? "",
+            href: jobPathPrefix + jobId,
+          }
+        }),
+      jobsSelector,
+      jobPathPrefix
+    )
+  })
 
   return jobs
 }
