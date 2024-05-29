@@ -2,24 +2,29 @@ import * as cheerio from "cheerio"
 import { launchBrowser } from "./browser"
 
 export type Company = "netlify" | "adyen" | "vercel" | "microsoft"
-type Job = { key: Company; path: string; domain: string }
+type Job = { key: Company; jobsPage: string; jobPathPrefix: string }
 export type JobObj = { href: string; text: string }
 
 const CAREER_PATHS: Job[] = [
   {
     key: "netlify",
-    path: "https://www.netlify.com/careers/#perfect-job",
-    domain: "https://www.netlify.com",
+    jobsPage: "https://www.netlify.com/careers/#perfect-job",
+    jobPathPrefix: "https://www.netlify.com",
   },
   {
     key: "adyen",
-    path: "https://careers.adyen.com/vacancies",
-    domain: "https://careers.adyen.com",
+    jobsPage: "https://careers.adyen.com/vacancies",
+    jobPathPrefix: "https://careers.adyen.com",
   },
   {
     key: "vercel",
-    path: "https://vercel.com/careers",
-    domain: "https://vercel.com",
+    jobsPage: "https://vercel.com/careers",
+    jobPathPrefix: "https://vercel.com",
+  },
+  {
+    key: "microsoft",
+    jobsPage: "https://jobs.careers.microsoft.com/global/en/search",
+    jobPathPrefix: "https://jobs.careers.microsoft.com/global/en/job/",
   },
 ]
 
@@ -29,7 +34,7 @@ export async function getJobs() {
   } = { netlify: [], adyen: [], vercel: [], microsoft: [] }
 
   for (const careerPath of CAREER_PATHS) {
-    const { key, path } = careerPath
+    const { key, jobsPage } = careerPath
 
     let jobsSelector
 
@@ -40,7 +45,7 @@ export async function getJobs() {
     if (key === "vercel") jobsSelector = "a[href^='/careers/']"
 
     if (jobsSelector) {
-      const response = await fetch(path)
+      const response = await fetch(jobsPage)
       const responseTxt = await response.text()
       const $ = cheerio.load(responseTxt)
 
@@ -50,7 +55,7 @@ export async function getJobs() {
         const jobNode = $(this)
         let href = jobNode.attr("href")
 
-        if (!href?.startsWith("https")) href = careerPath.domain + href
+        if (!href?.startsWith("https")) href = careerPath.jobsPage + href
 
         const text = jobNode.text()
 
@@ -58,17 +63,17 @@ export async function getJobs() {
       })
     }
 
-    const microsoftJobs = await getMicrosoftJobs()
-    jobsObj["microsoft"] = microsoftJobs
+    if (key === 'microsoft') {
+      const microsoftJobs = await getMicrosoftJobs(careerPath.jobsPage, careerPath.jobPathPrefix)
+      jobsObj[key] = microsoftJobs
+    }
   }
 
   return jobsObj
 }
 
-async function getMicrosoftJobs() {
+async function getMicrosoftJobs(jobsPage: string, jobPathPrefix: string) {
   let jobs: JobObj[] = []
-  const jobsPage = "https://jobs.careers.microsoft.com/global/en/search"
-  const jobPathPrefix = "https://jobs.careers.microsoft.com/global/en/job/"
 
   await launchBrowser(jobsPage, async page => {
     const inputSelector =
