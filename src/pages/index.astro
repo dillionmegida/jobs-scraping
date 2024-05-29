@@ -1,5 +1,15 @@
 ---
+import "../styles/global.css"
+import {
+	getJobs,
+	type JobObj,
+	type Company,
+	filterJobs,
+} from "../helpers/jobs"
 
+const jobsMap = await getJobs()
+
+const FILTER = ""
 ---
 
 <html lang="en">
@@ -8,9 +18,53 @@
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
+		<title>Jobs Scraping</title>
 	</head>
 	<body>
-		<h1>Astro</h1>
+		<div class="container">
+			<h1>Job Openings</h1>
+			{
+				(Object.keys(jobsMap) as Company[]).map(company => {
+					const jobsForCompany = jobsMap[company]
+					const filteredJobs = filterJobs(jobsForCompany, FILTER)
+
+          if(filteredJobs.length < 1) return <></>
+
+					return (
+						<div>
+							<h2>{company}</h2>
+							<div class="jobs">
+								{filteredJobs.map((job: JobObj) => (
+									<a href={job.href}>{job.text}</a>
+								))}
+							</div>
+						</div>
+					)
+				})
+			}
+		</div>
 	</body>
 </html>
+
+<style lang="scss">
+	h1 {
+		margin-bottom: 40px;
+	}
+
+	h2 {
+		margin: 20px 0 10px;
+	}
+
+	.jobs {
+		a {
+			display: block;
+			color: var(--text-color);
+			transition: color 300ms;
+			margin-bottom: 5px;
+
+			&:hover {
+				color: var(--blue);
+			}
+		}
+	}
+</style>
